@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { ExternalLink, Send, MoreHorizontal } from "lucide-react";
+import { ExternalLink, Send, MoreHorizontal, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface Lead {
   id: string;
@@ -63,7 +64,7 @@ export function LeadTable({ leads, onDeploy }: LeadTableProps) {
           >
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm text-foreground">{lead.name}</span>
-              {lead.website && (
+              {lead.website && lead.website !== "#" && (
                 <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-infra">
                   <ExternalLink className="h-3 w-3" />
                 </a>
@@ -79,13 +80,25 @@ export function LeadTable({ leads, onDeploy }: LeadTableProps) {
             </Badge>
             <div className="flex justify-end">
               {lead.status === "pending" ? (
-                <Button variant="ghost_muted" size="sm" onClick={() => onDeploy(lead.id)}>
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost_muted" size="sm" onClick={() => onDeploy(lead.id)}>
+                        <Send className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Deploy: CSV + Email Draft</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : lead.status === "queued" ? (
+                <span className="text-xs text-muted-foreground animate-pulse">Queuing...</span>
               ) : (
-                <Button variant="ghost_muted" size="sm">
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </Button>
+                <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                  <Download className="h-3 w-3 mr-1" />
+                  Sent
+                </Badge>
               )}
             </div>
           </motion.div>

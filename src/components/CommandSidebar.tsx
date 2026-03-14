@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Target, Activity, Send, Settings, ChevronDown } from "lucide-react";
+import { Shield, Target, Activity, Settings, ChevronDown, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const sectors = [
@@ -16,9 +16,10 @@ interface CommandSidebarProps {
   onExecute: () => void;
   isExtracting: boolean;
   leadCount: number;
+  onExportAll: () => void;
 }
 
-export function CommandSidebar({ activeSector, onSectorChange, onExecute, isExtracting, leadCount }: CommandSidebarProps) {
+export function CommandSidebar({ activeSector, onSectorChange, onExecute, isExtracting, leadCount, onExportAll }: CommandSidebarProps) {
   const [sectorOpen, setSectorOpen] = useState(true);
 
   return (
@@ -72,6 +73,13 @@ export function CommandSidebar({ activeSector, onSectorChange, onExecute, isExtr
             <p className="text-2xl font-bold text-foreground font-mono">{leadCount}</p>
           </div>
           <div className="px-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Storage</p>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-success" />
+              <span className="text-sm text-foreground">IndexedDB (Local)</span>
+            </div>
+          </div>
+          <div className="px-3">
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Status</p>
             <div className="flex items-center gap-2">
               <span className={`h-2 w-2 rounded-full ${isExtracting ? "bg-primary animate-sovereign-pulse" : "bg-success"}`} />
@@ -91,6 +99,15 @@ export function CommandSidebar({ activeSector, onSectorChange, onExecute, isExtr
         >
           <Activity className="h-4 w-4" />
           {isExtracting ? "EXTRACTING..." : "EXECUTE EXTRACTION"}
+        </Button>
+        <Button
+          variant="tactical"
+          className="w-full"
+          onClick={onExportAll}
+          disabled={leadCount === 0}
+        >
+          <FileDown className="h-4 w-4" />
+          EXPORT ALL CSV
         </Button>
         <Button variant="ghost_muted" className="w-full justify-start" size="sm">
           <Settings className="h-3.5 w-3.5" />
