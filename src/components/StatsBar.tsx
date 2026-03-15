@@ -5,13 +5,14 @@ interface StatsBarProps {
   totalLeak: number;
   deployed: number;
   frictionIndex: number;
+  intelligenceScore: number;
 }
 
 const stats = (p: StatsBarProps) => [
   { label: "Total HVTs", value: p.totalLeads.toString(), icon: Users, accent: false },
   { label: "Revenue Leak Pool", value: `$${p.totalLeak.toLocaleString()}`, icon: DollarSign, accent: true },
   { label: "Audits Deployed", value: p.deployed.toString(), icon: Send, accent: false },
-  { label: "Friction Index", value: `${p.frictionIndex}%`, icon: TrendingUp, accent: false },
+  { label: "Intelligence Score", value: `${Math.round(p.intelligenceScore)}%`, icon: TrendingUp, accent: false },
 ];
 
 export function StatsBar(props: StatsBarProps) {

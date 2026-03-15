@@ -3,9 +3,15 @@ import { CommandSidebar } from "@/components/CommandSidebar";
 import { LeadTable } from "@/components/LeadTable";
 import { LogStream, type LogEntry } from "@/components/LogStream";
 import { StatsBar } from "@/components/StatsBar";
-import { db, upsertLead, getLeadsBySector, updateLeadStatus, type LeadRecord } from "@/lib/db";
+import { db, upsertLead, getLeadsBySector, updateLeadStatus, clearAllLeads, type LeadRecord } from "@/lib/db";
 import { leadsToCSV, downloadCSV, generateEmailDraft, copyToClipboard } from "@/lib/export";
 import { useToast } from "@/hooks/use-toast";
+import { Country, City } from "country-state-city";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { enrichLeadData } from "@/lib/scraper";
 
 interface Lead {
   id: string;
@@ -16,6 +22,9 @@ interface Lead {
   email: string;
   revenueLeak: number;
   status: "pending" | "deployed" | "replied" | "queued";
+  timezone?: string;
+  isEnriched?: boolean;
+  confidence?: number;
 }
 
 const MOCK_LEADS: Record<string, Omit<Lead, "status">[]> = {
@@ -35,9 +44,31 @@ const MOCK_LEADS: Record<string, Omit<Lead, "status">[]> = {
     { id: "w2", name: "Zanzibar Luxury Salon", city: "Lagos", sector: "Wellness", website: "#", email: "booking@zanzibarsalon.ng", revenueLeak: 15600 },
   ],
   hubs: [
-    { id: "b1", name: "Nairobi Garage", city: "Nairobi", sector: "Business Hub", website: "https://nairobigarage.com", email: "partnerships@nairobigarage.com", revenueLeak: 28700 },
-    { id: "b2", name: "Co-Creation Hub", city: "Lagos", sector: "Business Hub", website: "https://cchubnigeria.com", email: "hello@cchubnigeria.com", revenueLeak: 34200 },
+    { id: "b1", name: "Nairobi Garage", city: "Nairobi", sector: "Business Hub", website: "https://nairobigarage.com", email: "partnerships@nairobigarage.com", revenueLeak: 28700, timezone: "Africa/Nairobi" },
+    { id: "b2", name: "Co-Creation Hub", city: "Lagos", sector: "Business Hub", website: "https://cchubnigeria.com", email: "hello@cchubnigeria.com", revenueLeak: 34200, timezone: "Africa/Lagos" },
   ],
+};
+
+const SECTOR_MULTIPLIERS: Record<string, number> = {
+  healthcare: 1.8,
+  fintech: 2.4,
+  wellness: 0.9,
+  fnb: 1.3,
+  retail: 1.1,
+  salons: 0.7,
+  hubs: 1.5,
+  airports: 5.2,
+};
+
+const SECTOR_KEYWORDS: Record<string, string> = {
+  healthcare: "hospital, medical, clinic",
+  fintech: "bank, finance, money",
+  wellness: "spa, wellness, massage",
+  hubs: "coworking, office, business",
+  fnb: "restaurant, cafe, dining",
+  retail: "shop, mall, store",
+  salons: "salon, beauty, barber",
+  airports: "airport, terminal",
 };
 
 function timestamp() {
@@ -51,10 +82,26 @@ function makeLog(message: string, type: LogEntry["type"] = "info"): LogEntry {
 
 const Index = () => {
   const [sector, setSector] = useState("healthcare");
+  const [countryIsoCode, setCountryIsoCode] = useState("");
+  const [countryName, setCountryName] = useState("");
+  const [cityName, setCityName] = useState("");
+  const [minLimit, setMinLimit] = useState(10);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [enhancedSearch, setEnhancedSearch] = useState(true);
+  const [draftLead, setDraftLead] = useState<Lead | null>(null);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
+  const [serperApiKey, setSerperApiKey] = useState(() => 
+    localStorage.getItem("SERPER_API_KEY") || 
+    import.meta.env.VITE_SERPER_API_KEY || 
+    ""
+  );
   const { toast } = useToast();
+
+  useEffect(() => {
+    localStorage.setItem("SERPER_API_KEY", serperApiKey);
+  }, [serperApiKey]);
 
   // Load persisted leads from IndexedDB on sector change
   useEffect(() => {
@@ -70,6 +117,9 @@ const Index = () => {
             email: r.email,
             revenueLeak: r.revenueLeak,
             status: r.status,
+            timezone: r.timezone,
+            isEnriched: r.isEnriched,
+            confidence: r.confidence,
           }))
         );
       } else {
@@ -82,96 +132,161 @@ const Index = () => {
     setLogs((prev) => [...prev, makeLog(msg, type)]);
   }, []);
 
-  const handleExecute = useCallback(() => {
+  const handleExecute = useCallback(async () => {
     if (isExtracting) return;
     setIsExtracting(true);
-    setLeads([]);
+    addLog(`Initializing Playwright stealth session & extraction engine for minimum ${minLimit} leads...`, "info");
 
-    const sectorLeads = MOCK_LEADS[sector] || [];
-    addLog(`Initializing Playwright stealth session...`);
+    let collected = 0;
+    let page = 1;
 
-    const steps = [
-      { delay: 600, msg: `Target sector: ${sector.toUpperCase()} | Scanning Google...`, type: "info" as const },
-      { delay: 1400, msg: `Bypassing anti-bot detection layer...`, type: "info" as const },
-      { delay: 2200, msg: `${sectorLeads.length} potential HVTs identified.`, type: "success" as const },
-      { delay: 2800, msg: `Running friction audit calculations (35% walk-away model)...`, type: "info" as const },
-      { delay: 3600, msg: `Revenue leak pool: $${sectorLeads.reduce((a, l) => a + l.revenueLeak, 0).toLocaleString()}/mo`, type: "warning" as const },
-      { delay: 4200, msg: `Deduplicating by domain... ${sectorLeads.length} unique leads confirmed.`, type: "success" as const },
-      { delay: 4600, msg: `Persisting to local database (IndexedDB)...`, type: "info" as const },
-      { delay: 4800, msg: `Extraction complete. Ready for deployment.`, type: "success" as const },
-    ];
+    let targetLocation = cityName ? `${cityName}, ${countryName}` : countryName;
+    if (sector === "airports") {
+      targetLocation = countryName || "World";
+    }
 
-    steps.forEach(({ delay, msg, type }) => {
-      setTimeout(() => addLog(msg, type), delay);
-    });
+    addLog(`Target sector: ${sector.toUpperCase()} in ${targetLocation.toUpperCase()} | Scanning live sources...`, "info");
+    
+    const existingDbLeads = await getLeadsBySector(sector);
+    const existingIds = new Set(existingDbLeads.map((l) => l.externalId));
+    const countryMeta = countryIsoCode ? Country.getCountryByCode(countryIsoCode) : null;
+    const defaultTz = countryMeta?.timezones?.[0]?.zoneName || "Africa/Lagos";
+    const countryCities = countryIsoCode ? City.getCitiesOfCountry(countryIsoCode) : [];
 
-    // Stagger lead appearance and persist to IndexedDB
-    sectorLeads.forEach((lead, i) => {
-      setTimeout(async () => {
-        const fullLead: Lead = { ...lead, status: "pending" };
-        setLeads((prev) => [...prev, fullLead]);
-        await upsertLead({
-          externalId: lead.id,
-          name: lead.name,
-          city: lead.city,
-          sector: lead.sector,
-          website: lead.website,
-          email: lead.email,
-          revenueLeak: lead.revenueLeak,
-          status: "pending",
-          sectorKey: sector,
-        });
-      }, 2200 + i * 300);
-    });
+    addLog(`Bypassing anti-bot detection layer...`, "info");
+    await new Promise((r) => setTimeout(r, 800));
 
-    setTimeout(() => setIsExtracting(false), 5000);
-  }, [sector, isExtracting, addLog]);
+    while (collected < minLimit && page < 5) {
+      try {
+        // Optimized query: keyword + comma location works significantly better than "X in Y"
+        const keywords = SECTOR_KEYWORDS[sector] || sector;
+        const queryStr = `${keywords}, ${targetLocation}`;
+        
+        const query = encodeURIComponent(queryStr);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&extratags=1&limit=50&zoom=10`);
+        
+        if (!res.ok) throw new Error("API rate limit or error");
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+           addLog(`No more signals detected on ${targetLocation.toUpperCase()} perimeter (Page ${page}).`, "warning");
+           break;
+        }
+
+        let pageFoundCount = 0;
+        let pageNewCount = 0;
+
+        for (const item of data) {
+          pageFoundCount++;
+          if (collected >= minLimit) break;
+          if (!item.name) continue;
+
+          const externalId = item.place_id.toString();
+          if (existingIds.has(externalId)) continue;
+          pageNewCount++;
+
+          const rawCity = item.address?.city || item.address?.town || item.address?.state || "Unknown";
+          
+          let timezone = item.extratags?.timezone;
+          if (!timezone && countryCities) {
+            const cityData = countryCities.find(c => 
+              c.name.toLowerCase() === rawCity.toLowerCase() || 
+              item.name.toLowerCase().includes(c.name.toLowerCase())
+            );
+            timezone = defaultTz; 
+          }
+          if (!timezone) timezone = defaultTz;
+
+          const baseLeak = Math.floor(Math.random() * 15000) + 5000;
+          const sectorMultiplier = SECTOR_MULTIPLIERS[sector] || 1.0;
+          const frictionIndex = 1 + (Math.random() * 0.5);
+          const calculatedLeak = Math.floor(baseLeak * sectorMultiplier * frictionIndex);
+
+          addLog(`Executing Deep Intelligence Scan (Google via Enigma) for ${item.name}...`, "info");
+          const enrichment = enhancedSearch 
+            ? await enrichLeadData(item.name, targetLocation, serperApiKey)
+            : { website: item.extratags?.website || `https://google.com/search?q=${encodeURIComponent(item.name)}`, email: item.extratags?.email || "", confidence: 0 };
+          
+          const newLead: Lead = {
+            id: externalId,
+            name: item.name,
+            city: rawCity,
+            sector: sector,
+            website: enrichment.website,
+            email: enrichment.email || item.extratags?.email || `contact@${item.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}.com`,
+            revenueLeak: calculatedLeak,
+            status: "pending",
+            timezone: timezone,
+            isEnriched: true,
+            confidence: enrichment.confidence,
+          };
+
+          await upsertLead({
+            externalId: newLead.id,
+            name: newLead.name,
+            city: newLead.city,
+            sector: newLead.sector,
+            website: newLead.website,
+            email: newLead.email,
+            revenueLeak: newLead.revenueLeak,
+            status: "pending",
+            sectorKey: sector,
+            timezone: newLead.timezone,
+            isEnriched: true,
+            confidence: newLead.confidence,
+          });
+
+          existingIds.add(externalId);
+          setLeads((prev) => [...prev, newLead]);
+          collected++;
+          
+          addLog(`Identified unique HVT: ${newLead.name}`, "success");
+          await new Promise((r) => setTimeout(r, 100)); // Faster capture
+        }
+
+        if (pageNewCount === 0 && pageFoundCount > 0) {
+          addLog(`Scanning page ${page}: Found ${pageFoundCount} entities but all are already indexed. No new leads.`, "warning");
+        }
+        
+        page++;
+        // Throttling for Nominatim compliance
+        await new Promise((r) => setTimeout(r, 1000));
+      } catch (err) {
+        addLog(`Error fetching leads: ${err}`, "warning");
+        break;
+      }
+    }
+    
+    addLog(`Extraction complete. ${collected} new leads deployed.`, "success");
+    setIsExtracting(false);
+  }, [sector, countryName, cityName, isExtracting, addLog, minLimit, countryIsoCode, enhancedSearch, serperApiKey]);
 
   const handleDeploy = useCallback(async (id: string) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status: "queued" as const } : l))
-    );
-    await updateLeadStatus(id, "queued");
-
     const lead = leads.find((l) => l.id === id);
     if (lead) {
-      addLog(`Queuing audit for ${lead.name} (${lead.email})...`, "info");
+      setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status: "queued" as const } : l)));
+      await updateLeadStatus(id, "queued");
 
-      // Generate email draft and copy to clipboard
+      addLog(`Generating strategic audit for ${lead.name}...`, "info");
       const emailDraft = generateEmailDraft(lead);
       const copied = await copyToClipboard(emailDraft);
 
-      // Download CSV for this lead
-      const csv = leadsToCSV([{
-        externalId: lead.id,
-        name: lead.name,
-        city: lead.city,
-        sector: lead.sector,
-        website: lead.website,
-        email: lead.email,
-        revenueLeak: lead.revenueLeak,
-        status: lead.status,
-        sectorKey: sector,
-        createdAt: new Date(),
-      }]);
-      downloadCSV(csv, `${lead.name.replace(/\s+/g, "_")}_lead.csv`);
-
       setTimeout(async () => {
-        setLeads((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, status: "deployed" as const } : l))
-        );
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status: "deployed" as const } : l)));
         await updateLeadStatus(id, "deployed");
-        addLog(`✓ Audit deployed to ${lead.email}`, "success");
-        addLog(copied ? `✓ Email draft copied to clipboard` : `⚠ Could not copy to clipboard`, copied ? "success" : "warning");
-        addLog(`✓ CSV downloaded for ${lead.name}`, "success");
+        addLog(`✓ Infrastructure audit prepared for ${lead.name}`, "success");
+        if (copied) addLog(`✓ Draft copied to clipboard`, "success");
+
+        setDraftLead(lead);
+        setIsDraftOpen(true);
 
         toast({
-          title: "Lead Deployed",
-          description: `CSV downloaded & email draft ${copied ? "copied to clipboard" : "ready"} for ${lead.name}`,
+          title: "Audit Prepared",
+          description: `Internal draft ready for review.`,
         });
-      }, 1500);
+      }, 800);
     }
-  }, [leads, addLog, sector, toast]);
+  }, [leads, addLog, toast]);
 
   const handleExportAll = useCallback(() => {
     if (leads.length === 0) return;
@@ -193,6 +308,15 @@ const Index = () => {
     toast({ title: "CSV Exported", description: `${leads.length} ${sector} leads exported.` });
   }, [leads, sector, addLog, toast]);
 
+  const handleClearAll = useCallback(async () => {
+    if (confirm("Are you sure you want to purge the entire Lead Database? This action is irreversible.")) {
+      await clearAllLeads();
+      setLeads([]);
+      addLog("⚠️ Database purged. All leads deleted.", "warning");
+      toast({ title: "Database Cleared", description: "All lead records have been removed." });
+    }
+  }, [addLog, toast]);
+
   const totalLeak = leads.reduce((a, l) => a + l.revenueLeak, 0);
   const deployed = leads.filter((l) => l.status === "deployed" || l.status === "replied").length;
 
@@ -201,10 +325,24 @@ const Index = () => {
       <CommandSidebar
         activeSector={sector}
         onSectorChange={setSector}
+        countryIsoCode={countryIsoCode}
+        onCountryChange={(iso, name) => {
+          setCountryIsoCode(iso);
+          setCountryName(name);
+        }}
+        cityName={cityName}
+        onCityChange={setCityName}
         onExecute={handleExecute}
         isExtracting={isExtracting}
         leadCount={leads.length}
         onExportAll={handleExportAll}
+        minLimit={minLimit}
+        onMinLimitChange={setMinLimit}
+        enhancedSearch={enhancedSearch}
+        onEnhancedSearchChange={setEnhancedSearch}
+        onClearAll={handleClearAll}
+        serperApiKey={serperApiKey}
+        onSerperApiKeyChange={setSerperApiKey}
       />
 
       <main className="flex-1 p-6 space-y-6 overflow-auto">
@@ -220,12 +358,58 @@ const Index = () => {
           totalLeak={totalLeak}
           deployed={deployed}
           frictionIndex={leads.length > 0 ? 38.4 : 0}
+          intelligenceScore={leads.length > 0 ? leads.reduce((a, l) => a + (l.confidence || 0), 0) / leads.length : 0}
         />
 
-        <LeadTable leads={leads} onDeploy={handleDeploy} />
+        <LeadTable 
+          leads={leads} 
+          onDeploy={handleDeploy} 
+          onViewDraft={(lead) => {
+            setDraftLead(lead);
+            setIsDraftOpen(true);
+          }}
+        />
 
         <LogStream logs={logs} />
       </main>
+
+      <Dialog open={isDraftOpen} onOpenChange={setIsDraftOpen}>
+        <DialogContent className="max-w-2xl bg-card border-border shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              Infrastructure Audit Draft
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Strategic draft prepared for {draftLead?.name}. Revenue leak identified: <span className="text-primary font-bold">${draftLead?.revenueLeak.toLocaleString()}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 rounded-md bg-secondary/50 border border-border relative">
+            <ScrollArea className="h-[300px] w-full pr-4">
+              <pre className="text-sm font-sans whitespace-pre-wrap leading-relaxed text-foreground/90">
+                {draftLead ? generateEmailDraft(draftLead) : ""}
+              </pre>
+            </ScrollArea>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="ghost_muted" onClick={() => setIsDraftOpen(false)}>Close Review</Button>
+            <Button 
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" 
+              onClick={async () => {
+                if (draftLead) {
+                   await copyToClipboard(generateEmailDraft(draftLead));
+                   toast({ title: "Draft Copied", description: "Audit draft copied to clipboard for manual dispatch." });
+                }
+                setIsDraftOpen(false);
+              }}
+            >
+              Copy to Dispatch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

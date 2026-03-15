@@ -11,6 +11,9 @@ export interface LeadRecord {
   revenueLeak: number;
   status: "pending" | "deployed" | "replied" | "queued";
   sectorKey: string;
+  timezone?: string;
+  isEnriched?: boolean;
+  confidence?: number;
   createdAt: Date;
 }
 
@@ -20,7 +23,7 @@ class SovereignDB extends Dexie {
   constructor() {
     super("SovereignCommandCenter");
     this.version(1).stores({
-      leads: "++id, externalId, sectorKey, status, email, name",
+      leads: "++id, externalId, sectorKey, status, email, name, isEnriched",
     });
   }
 }
@@ -55,7 +58,7 @@ export async function getAllLeads() {
   return db.leads.toArray();
 }
 
-// Helper: clear sector
-export async function clearSector(sectorKey: string) {
-  return db.leads.where("sectorKey").equals(sectorKey).delete();
+// Helper: clear all leads
+export async function clearAllLeads() {
+  return db.leads.clear();
 }
