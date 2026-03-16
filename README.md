@@ -93,7 +93,7 @@ A massive thank you to everyone fueling this mission!
 <table><tr>
     <td align="center">
       <a href="https://github.com/janaSalehs" title="janaSalehs">
-        <img src="https://avatars.githubusercontent.com/u/173851512?v=4" width="50" height="50" style="border-radius: 50%; display: block;" alt="janaSalehs"/>
+        <img src="https://images.weserv.nl/?url=https://avatars.githubusercontent.com/u/173851512?v=4&w=50&h=50&fit=cover&mask=circle" width="50" height="50" style="display: block;" alt="janaSalehs"/>
       </a>
     </td></tr></table>
 <!-- STARGAZERS_END -->
