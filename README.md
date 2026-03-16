@@ -92,10 +92,8 @@ A massive thank you to everyone fueling this mission!
 <!-- STARGAZERS_START -->
 <table><tr>
     <td align="center">
-      <a href="https://github.com/janaSalehs">
-        <img src="https://avatars.githubusercontent.com/u/173851512?v=4" width="50" style="border-radius: 50%;" alt="janaSalehs"/>
-        <br />
-        <sub>janaSalehs</sub>
+      <a href="https://github.com/janaSalehs" title="janaSalehs">
+        <img src="https://avatars.githubusercontent.com/u/173851512?v=4" width="50" height="50" style="border-radius: 50%; display: block;" alt="janaSalehs"/>
       </a>
     </td></tr></table>
 <!-- STARGAZERS_END -->
