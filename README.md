@@ -89,7 +89,8 @@ leads-intercontinental/
 
 A massive thank you to everyone fueling this mission!
 
-[![Stargazers repo roster för CodeNKoffee/leads-intercontinental](https://reporoster.com/stars/v1/CodeNKoffee/leads-intercontinental)](https://github.com/CodeNKoffee/leads-intercontinental/stargazers)
+<!-- STARGAZERS_START -->
+<!-- STARGAZERS_END -->
 
 ## 📜 License
 
