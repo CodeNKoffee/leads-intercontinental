@@ -43,7 +43,7 @@ jobs:
               gridHtml += `
                 <td align="center">
                   <a href="${user.html_url}" title="${user.login}">
-                    <img src="${user.avatar_url}" width="50" height="50" style="border-radius: 50%; display: block;" alt="${user.login}"/>
+                    <img src="https://images.weserv.nl/?url=${user.avatar_url}&w=50&h=50&fit=cover&mask=circle" width="50" height="50" style="display: block;" alt="${user.login}"/>
                   </a>
                 </td>`;
             });
