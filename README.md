@@ -85,6 +85,12 @@ leads-intercontinental/
 └── assets/                # Production build artifacts
 ```
 
+## 🌟 Stargazers
+
+A massive thank you to everyone fueling this mission!
+
+[![Stargazers repo roster för CodeNKoffee/leads-intercontinental](https://reporoster.com/stars/v1/CodeNKoffee/leads-intercontinental)](https://github.com/CodeNKoffee/leads-intercontinental/stargazers)
+
 ## 📜 License
 
 MIT License - see the [LICENSE](LICENSE) file for details.
