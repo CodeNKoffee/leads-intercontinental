@@ -1,7 +1,11 @@
 {
   "name": "leads-intercontinental",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodeNKoffee/leads-intercontinental.git"
+  },
   "description": "High-performance lead generation and intelligence engine.",
   "author": "Hatem Soliman",
   "type": "module",
