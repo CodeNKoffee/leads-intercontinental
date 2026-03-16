@@ -95,6 +95,11 @@ A massive thank you to everyone fueling this mission!
       <a href="https://github.com/janaSalehs" title="janaSalehs">
         <img src="https://images.weserv.nl/?url=https://avatars.githubusercontent.com/u/173851512?v=4&w=50&h=50&fit=cover&mask=circle" width="50" height="50" style="display: block;" alt="janaSalehs"/>
       </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/CodeNKoffee" title="CodeNKoffee">
+        <img src="https://images.weserv.nl/?url=https://avatars.githubusercontent.com/u/96267016?v=4&w=50&h=50&fit=cover&mask=circle" width="50" height="50" style="display: block;" alt="CodeNKoffee"/>
+      </a>
     </td></tr></table>
 <!-- STARGAZERS_END -->
 
