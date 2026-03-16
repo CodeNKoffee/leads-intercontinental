@@ -1,7 +1,7 @@
 # Leads Intercontinental - Global Intelligence Engine
 
-<p align="center">
-  <img src="public/leads-intercontinental.png" alt="Leads Intercontinental Logo" width="200" style="border-radius: 24px;"/>
+<p align="center" style="border-radius: 24px;">
+  <img src="public/leads-intercontinental.png" alt="Leads Intercontinental Logo" width="200"/>
 </p>
 
 <p align="center">
