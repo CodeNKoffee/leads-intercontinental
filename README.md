@@ -4,6 +4,12 @@
   <img src="public/leads-intercontinental.png" alt="Leads Intercontinental Logo" width="200"/>
 </p>
 
+<p align="center">
+  <a href="https://buymeacoffee.com/h4temsoliman">
+    <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support%20My%20Work-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee" />
+  </a>
+</p>
+
 Leads Intercontinental is a high-performance, sovereign lead generation and intelligence deployment system. It identifies High-Value Targets (HVTs) across diverse sectors using a multi-stage discovery and enrichment pipeline.
 
 ## 🛡️ Strategic Capabilities
@@ -50,6 +56,13 @@ bun run electron:dev
 bun run electron:build
 ```
 
+<p align="center">
+  <b>Fuel the Engine</b><br/>
+  <a href="https://buymeacoffee.com/h4temsoliman">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="180" />
+  </a>
+</p>
+
 ## 🛠️ Tech Stack
 
 - **Frontend** - React, Vite, TypeScript
@@ -75,6 +88,13 @@ leads-intercontinental/
 ## 📜 License
 
 MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Developed by <b>Hatem Soliman</b><br/>
+  <a href="https://buymeacoffee.com/h4temsoliman">Support this mission on Buy Me a Coffee</a>
+</p>
 
 ---
 *Time is the only commodity that cannot be exported. We protect it.*
