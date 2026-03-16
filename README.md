@@ -1,4 +1,4 @@
-# Leads Intercontinental | The Enigma Intelligence Engine
+# Leads Intercontinental | Global Intelligence Engine
 
 Leads Intercontinental is a high-performance, sovereign lead generation and intelligence deployment system. It is designed to identify High-Value Targets (HVTs) across diverse sectors (Healthcare, Fintech, Wellness) using a multi-stage discovery and enrichment pipeline.
 
@@ -37,12 +37,36 @@ Leads Intercontinental is a high-performance, sovereign lead generation and inte
    ```
    *Get a free API key at [serper.dev](https://serper.dev).*
 
-4. **Initialize Engine**:
+    ```sh
+    bun dev
+    # or
+    npm run dev
+    ```
+
+## 🖥️ Desktop Native App (Sovereign Command Center)
+
+The engine can be run as a native desktop application for a more immersive command center experience.
+
+### Development Environment
+Running in Electron while maintaining live-reload:
+1. Ensure the Vite server is running (`bun dev`).
+2. In a separate terminal, launch the native shell:
    ```sh
-   bun dev
-   # or
-   npm run dev
+   bun run electron:dev
    ```
+
+### Production Build
+To package the engine as a standalone `.dmg` or `.app`:
+```sh
+bun run electron:build
+```
+*The packaged application will be generated in the `dist-electron/` directory.*
+
+### Application Icons
+The build system expects an icon at `assets/icon.icns`. If you have a custom design:
+1. Generate an ICNS (Mac) or ICO (Windows) file.
+2. Place it in the `assets/` folder.
+3. Re-run the `electron:build` command.
 
 ## 🛠️ Tech Stack
 - **Frontend**: React, Vite, TypeScript

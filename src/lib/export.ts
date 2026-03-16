@@ -45,6 +45,12 @@ Tawabiry | Sovereign Infrastructure
 hatem.soliman@tawabiry.com`;
 }
 
+export function generateBatchDrafts(leads: { name: string; city: string; sector: string; email: string; revenueLeak: number }[]): string {
+  return leads.map((l) => {
+    return `========================================\nDRAFT FOR: ${l.name}\n========================================\n${generateEmailDraft(l)}\n\n`;
+  }).join("\n");
+}
+
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);

@@ -14,6 +14,7 @@ export interface LeadRecord {
   timezone?: string;
   isEnriched?: boolean;
   confidence?: number;
+  source?: string;
   createdAt: Date;
 }
 

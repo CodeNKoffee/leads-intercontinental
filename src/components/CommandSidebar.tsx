@@ -4,6 +4,7 @@ import { Shield, Target, Activity, Settings, ChevronDown, FileDown, Trash2 } fro
 import { Button } from "@/components/ui/button";
 import { Country, City } from "country-state-city";
 import { SovereignSelect } from "./SovereignSelect";
+import { LocationEngine } from "./LocationEngine";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -36,6 +37,9 @@ interface CommandSidebarProps {
   onClearAll: () => void;
   serperApiKey: string;
   onSerperApiKeyChange: (key: string) => void;
+  scanSpeed: "stealth" | "balanced" | "aggressive";
+  onScanSpeedChange: (speed: "stealth" | "balanced" | "aggressive") => void;
+  onBatchDraft: () => void;
 }
 
 export function CommandSidebar({ 
@@ -55,65 +59,34 @@ export function CommandSidebar({
   onEnhancedSearchChange,
   onClearAll,
   serperApiKey,
-  onSerperApiKeyChange
+  onSerperApiKeyChange,
+  scanSpeed,
+  onScanSpeedChange,
+  onBatchDraft
 }: CommandSidebarProps) {
-  const [sectorOpen, setSectorOpen] = useState(true);
-  const [countries] = useState(() => Country.getAllCountries());
-  const [cities, setCities] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (countryIsoCode) {
-      setCities(City.getCitiesOfCountry(countryIsoCode) || []);
-    } else {
-      setCities([]);
-    }
-  }, [countryIsoCode]);
-
   return (
     <aside className="w-[260px] h-screen sticky top-0 bg-card border-r border-border flex flex-col overflow-hidden">
       {/* Logo */}
       <div className="p-6 border-b border-border bg-card/50 backdrop-blur-sm z-10">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
-          <span className="text-lg font-black tracking-tight text-primary">TAWABIRY</span>
+          <span className="text-lg font-black tracking-tight text-primary">LEADS INTERCONTINENTAL</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1 tracking-wide uppercase font-semibold opacity-70">SOVEREIGN COMMAND</p>
+        <p className="text-[10px] text-muted-foreground mt-1 tracking-widest uppercase font-bold opacity-70">GLOBAL COMMAND CENTER</p>
       </div>
 
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scroll-smooth">
         {/* Sector Selector */}
         <div className="space-y-4">
-          <button
-            onClick={() => setSectorOpen(!sectorOpen)}
-            className="flex items-center justify-between w-full text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]"
-          >
-            Target Sectors
-            <ChevronDown className={`h-3 w-3 transition-transform duration-300 ${sectorOpen ? "rotate-0" : "-rotate-90"}`} />
-          </button>
-
-          {sectorOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-1"
-            >
-              {sectors.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => onSectorChange(s.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all flex items-center gap-2 ${
-                    activeSector === s.id
-                      ? "bg-primary/10 text-primary font-semibold border-l-2 border-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                  }`}
-                >
-                  <Target className={`h-3.5 w-3.5 ${activeSector === s.id ? "text-primary" : ""}`} />
-                  {s.label}
-                </button>
-              ))}
-            </motion.div>
-          )}
+          <SovereignSelect
+            label="Target Sector"
+            value={activeSector}
+            onValueChange={onSectorChange}
+            options={sectors.map(s => ({ value: s.id, label: s.label }))}
+            placeholder="Select Sector"
+            disabled={isExtracting}
+          />
         </div>
 
         {/* Stats Section */}
@@ -166,48 +139,55 @@ export function CommandSidebar({
               <p className="text-[8px] text-muted-foreground italic">Required for live Google Search scraping</p>
             </motion.div>
           )}
+
+          {/* Scan Speed Selector */}
+          <div className="mt-6 space-y-3">
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Extraction Pulse (Throttling)</p>
+            <div className="grid grid-cols-3 gap-1 bg-black/20 p-1 rounded-md border border-border/30">
+              {(["stealth", "balanced", "aggressive"] as const).map((speed) => (
+                <button
+                  key={speed}
+                  onClick={() => onScanSpeedChange(speed)}
+                  className={`py-1.5 text-[9px] uppercase font-bold rounded transition-all ${
+                    scanSpeed === speed 
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {speed}
+                </button>
+              ))}
+            </div>
+            <p className="text-[8px] text-muted-foreground leading-tight italic px-1">
+              {scanSpeed === "stealth" && "Mimics human behavior. Safest for API limits."}
+              {scanSpeed === "balanced" && "Optimized throughput with moderate jitter."}
+              {scanSpeed === "aggressive" && "High speed. Faster extraction, higher API load."}
+            </p>
+          </div>
         </div>
 
-        {/* Strategic Target Parameters */}
         <div className="space-y-4 pt-4 border-t border-border/50">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Strategic Parameters</p>
           
-          <div className="space-y-4">
-            <SovereignSelect
-              label="Geography (Country)"
-              value={countryIsoCode}
-              onValueChange={(code) => {
-                const name = countries.find(c => c.isoCode === code)?.name || "";
-                onCountryChange(code, name);
-                onCityChange("");
-              }}
-              options={countries.map(c => ({ value: c.isoCode, label: `${c.flag || ""} ${c.name}` }))}
-              placeholder="Select Country"
-              disabled={isExtracting || activeSector === "airports"}
+          <LocationEngine
+            countryIsoCode={countryIsoCode}
+            cityName={cityName}
+            onCountryChange={onCountryChange}
+            onCityChange={onCityChange}
+            disabled={isExtracting}
+            hideCity={activeSector === "airports"}
+          />
+
+          <div className="space-y-2 mt-4">
+            <label className="text-[10px] text-muted-foreground uppercase font-semibold">Min Target Yield</label>
+            <input
+              type="number"
+              min={1}
+              value={minLimit}
+              onChange={(e) => onMinLimitChange(parseInt(e.target.value) || 1)}
+              disabled={isExtracting}
+              className="w-full bg-secondary/50 text-foreground text-sm rounded-md px-3 py-2 outline-none border border-border focus:border-primary/30 transition-all font-mono"
             />
-
-            {activeSector !== "airports" && countryIsoCode && (
-              <SovereignSelect
-                label="Tactical Hub (City)"
-                value={cityName}
-                onValueChange={onCityChange}
-                options={cities.map(c => ({ value: c.name, label: c.name }))}
-                placeholder="All Cities"
-                disabled={isExtracting}
-              />
-            )}
-
-            <div className="space-y-2">
-              <label className="text-[10px] text-muted-foreground uppercase font-semibold">Min Target Yield</label>
-              <input
-                type="number"
-                min={1}
-                value={minLimit}
-                onChange={(e) => onMinLimitChange(parseInt(e.target.value) || 1)}
-                disabled={isExtracting}
-                className="w-full bg-secondary/50 text-foreground text-sm rounded-md px-3 py-2 outline-none border border-border focus:border-primary/30 transition-all font-mono"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -232,6 +212,15 @@ export function CommandSidebar({
         >
           <FileDown className="h-4 w-4 mr-2" />
           EXTRACT TO CSV
+        </Button>
+        <Button
+          variant="tactical"
+          className="w-full h-11 border-primary/20 hover:border-primary/50 text-primary-foreground bg-primary/20 hover:bg-primary/30"
+          onClick={onBatchDraft}
+          disabled={leadCount === 0}
+        >
+          <Target className="h-4 w-4 mr-2" />
+          BATCH MAKE DRAFTS
         </Button>
         <Button
           variant="ghost_muted"

@@ -4,14 +4,14 @@ import { LeadTable } from "@/components/LeadTable";
 import { LogStream, type LogEntry } from "@/components/LogStream";
 import { StatsBar } from "@/components/StatsBar";
 import { db, upsertLead, getLeadsBySector, updateLeadStatus, clearAllLeads, type LeadRecord } from "@/lib/db";
-import { leadsToCSV, downloadCSV, generateEmailDraft, copyToClipboard } from "@/lib/export";
+import { leadsToCSV, downloadCSV, generateEmailDraft, generateBatchDrafts, copyToClipboard } from "@/lib/export";
 import { useToast } from "@/hooks/use-toast";
 import { Country, City } from "country-state-city";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-import { enrichLeadData } from "@/lib/scraper";
+import { enrichLeadData, tacticalDelay } from "@/lib/scraper";
 
 interface Lead {
   id: string;
@@ -25,6 +25,7 @@ interface Lead {
   timezone?: string;
   isEnriched?: boolean;
   confidence?: number;
+  source?: string;
 }
 
 const MOCK_LEADS: Record<string, Omit<Lead, "status">[]> = {
@@ -97,6 +98,7 @@ const Index = () => {
     import.meta.env.VITE_SERPER_API_KEY || 
     ""
   );
+  const [scanSpeed, setScanSpeed] = useState<"stealth" | "balanced" | "aggressive">("balanced");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -120,6 +122,7 @@ const Index = () => {
             timezone: r.timezone,
             isEnriched: r.isEnriched,
             confidence: r.confidence,
+            source: r.source,
           }))
         );
       } else {
@@ -158,15 +161,26 @@ const Index = () => {
 
     while (collected < minLimit && page < 5) {
       try {
-        // Optimized query: keyword + comma location works significantly better than "X in Y"
-        const keywords = SECTOR_KEYWORDS[sector] || sector;
-        const queryStr = `${keywords}, ${targetLocation}`;
+        // Optimized query: Picking the primary keyword and ensuring natural spacing
+        const rawKeywords = SECTOR_KEYWORDS[sector] || sector;
+        const primaryKeyword = rawKeywords.split(",")[0].trim();
+        const queryStr = `${primaryKeyword} ${targetLocation}`;
         
         const query = encodeURIComponent(queryStr);
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&extratags=1&limit=50&zoom=10`);
+        const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&extratags=1&limit=50&zoom=10&offset=${(page - 1) * 50}`;
+        
+        console.log(`[NOMINATIM DEBUG] Query: "${queryStr}"`);
+        console.log(`[NOMINATIM DEBUG] URL: ${url}`);
+        
+        const res = await fetch(url);
         
         if (!res.ok) throw new Error("API rate limit or error");
         const data = await res.json();
+        
+        console.log(`[NOMINATIM DEBUG] Response Data Count: ${data?.length || 0}`);
+        if (data && data.length > 0) {
+          console.log(`[NOMINATIM DEBUG] First result:`, data[0]);
+        }
         
         if (!data || data.length === 0) {
            addLog(`No more signals detected on ${targetLocation.toUpperCase()} perimeter (Page ${page}).`, "warning");
@@ -202,10 +216,16 @@ const Index = () => {
           const frictionIndex = 1 + (Math.random() * 0.5);
           const calculatedLeak = Math.floor(baseLeak * sectorMultiplier * frictionIndex);
 
+          if (enhancedSearch) {
+            const delayMap = { stealth: 2200, balanced: 1000, aggressive: 300 };
+            addLog(`Mimicking human behavior (${scanSpeed})... pausing for jitter`, "info");
+            await tacticalDelay(delayMap[scanSpeed]);
+          }
+
           addLog(`Executing Deep Intelligence Scan (Google via Enigma) for ${item.name}...`, "info");
           const enrichment = enhancedSearch 
             ? await enrichLeadData(item.name, targetLocation, serperApiKey)
-            : { website: item.extratags?.website || `https://google.com/search?q=${encodeURIComponent(item.name)}`, email: item.extratags?.email || "", confidence: 0 };
+            : { website: item.extratags?.website || `https://google.com/search?q=${encodeURIComponent(item.name)}`, email: item.extratags?.email || "", confidence: 0, source: "osm" };
           
           const newLead: Lead = {
             id: externalId,
@@ -219,6 +239,7 @@ const Index = () => {
             timezone: timezone,
             isEnriched: true,
             confidence: enrichment.confidence,
+            source: enrichment.source,
           };
 
           await upsertLead({
@@ -234,6 +255,7 @@ const Index = () => {
             timezone: newLead.timezone,
             isEnriched: true,
             confidence: newLead.confidence,
+            source: newLead.source,
           });
 
           existingIds.add(externalId);
@@ -259,7 +281,7 @@ const Index = () => {
     
     addLog(`Extraction complete. ${collected} new leads deployed.`, "success");
     setIsExtracting(false);
-  }, [sector, countryName, cityName, isExtracting, addLog, minLimit, countryIsoCode, enhancedSearch, serperApiKey]);
+  }, [sector, countryName, cityName, isExtracting, addLog, minLimit, countryIsoCode, enhancedSearch, serperApiKey, scanSpeed]);
 
   const handleDeploy = useCallback(async (id: string) => {
     const lead = leads.find((l) => l.id === id);
@@ -308,6 +330,32 @@ const Index = () => {
     toast({ title: "CSV Exported", description: `${leads.length} ${sector} leads exported.` });
   }, [leads, sector, addLog, toast]);
 
+  const handleBatchDraft = useCallback(async () => {
+    if (leads.length === 0) return;
+    
+    addLog(`Compiling batch intelligence reports for ${leads.length} HVTs...`, "info");
+    const leadsForDraft = leads.map(l => ({
+      name: l.name,
+      city: l.city,
+      sector: l.sector,
+      email: l.email,
+      revenueLeak: l.revenueLeak
+    }));
+    
+    const batchDraft = generateBatchDrafts(leadsForDraft);
+    const copied = await copyToClipboard(batchDraft);
+    
+    if (copied) {
+      addLog(`✓ Batch intelligence compiled and copied to clipboard`, "success");
+      toast({
+        title: "Intelligence Compiled",
+        description: `${leads.length} drafts copied. Ready for dispatch.`,
+      });
+    } else {
+      addLog(`Failed to copy batch drafts`, "warning");
+    }
+  }, [leads, addLog, toast]);
+
   const handleClearAll = useCallback(async () => {
     if (confirm("Are you sure you want to purge the entire Lead Database? This action is irreversible.")) {
       await clearAllLeads();
@@ -343,6 +391,9 @@ const Index = () => {
         onClearAll={handleClearAll}
         serperApiKey={serperApiKey}
         onSerperApiKeyChange={setSerperApiKey}
+        scanSpeed={scanSpeed}
+        onScanSpeedChange={setScanSpeed}
+        onBatchDraft={handleBatchDraft}
       />
 
       <main className="flex-1 p-6 space-y-6 overflow-auto">
@@ -359,6 +410,7 @@ const Index = () => {
           deployed={deployed}
           frictionIndex={leads.length > 0 ? 38.4 : 0}
           intelligenceScore={leads.length > 0 ? leads.reduce((a, l) => a + (l.confidence || 0), 0) / leads.length : 0}
+          isExtracting={isExtracting}
         />
 
         <LeadTable 

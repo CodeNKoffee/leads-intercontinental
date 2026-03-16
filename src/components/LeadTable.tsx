@@ -16,6 +16,7 @@ export interface Lead {
   timezone?: string;
   isEnriched?: boolean;
   confidence?: number;
+  source?: string;
 }
 
 interface LeadTableProps {
@@ -75,7 +76,13 @@ export function LeadTable({ leads, onDeploy, onViewDraft }: LeadTableProps) {
                     <TooltipTrigger>
                       <div className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.8)]" />
                     </TooltipTrigger>
-                    <TooltipContent>AI Enriched ({lead.confidence}%)</TooltipContent>
+                    <TooltipContent>
+                      <div className="space-y-1">
+                        <p className="font-bold text-primary">Intelligence Confirmed</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Confidence: {lead.confidence}%</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Source: {lead.source?.replace('_', ' ') || 'unknown'}</p>
+                      </div>
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
