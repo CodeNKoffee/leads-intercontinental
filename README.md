@@ -1,7 +1,7 @@
 # Leads Intercontinental - Global Intelligence Engine
 
 <p align="center">
-  <img src="public/leads-intercontinental.png" alt="Leads Intercontinental Logo" width="200" style="border-radius: 24px !important;"/>
+  <img src="https://images.weserv.nl/?url=https://raw.githubusercontent.com/CodeNKoffee/leads-intercontinental/main/public/leads-intercontinental.png&w=400&fit=cover&mask=circle" alt="Leads Intercontinental Logo" width="200"/>
 </p>
 
 <p align="center">
