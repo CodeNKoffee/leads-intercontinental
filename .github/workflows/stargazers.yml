@@ -3,11 +3,16 @@ name: Update Stargazers
 on:
   schedule:
     - cron: '0 */12 * * *' # Every 12 hours
+  push:
+    branches:
+      - main
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   update-stargazers:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
